@@ -1,0 +1,7 @@
+# Python
+__pycache__
+.cache
+venv
+build
+*.egg*
+.idea/*
