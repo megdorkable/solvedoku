@@ -2,6 +2,7 @@
 # solvedoku.py
 import numpy
 from typing import Tuple, List
+from test_boards import boards_sols
 
 
 class Board:
@@ -211,7 +212,7 @@ class Board:
                         all_found.append((idx, idy))
             if len(all_found) == 1:
                 return found
-            else:
+            elif len(all_found) > 1:
                 found_row = all_found[0][0]
                 found_col = all_found[0][1]
                 for f in all_found[1:]:
@@ -245,91 +246,32 @@ class Board:
         return None
 
 
-e0 = [[6, None, None, None, None, 9, None, None, 2],
-      [None, 4, 3, 1, None, 2, None, 9, None],
-      [2, None, 1, None, None, 8, None, 6, 4],
-      [9, None, None, None, None, None, 8, 7, 1],
-      [8, None, 5, 7, 2, None, 3, None, None],
-      [4, 3, 7, None, None, 1, 2, None, 6],
-      [None, 7, None, None, 5, None, 6, None, None],
-      [None, None, 6, 9, None, 3, 4, None, None],
-      [None, 2, 4, None, None, None, None, None, 5]]
+if __name__ == '__main__':
+    chosen = -1
+    while chosen != 'q':
+        options = [i for i, _ in enumerate(boards_sols)]
+        chosen = input(f"Choose a number out of {options} (or 'q' to exit): ")
+        e = 'You have not entered a valid number from the given options.'
+        if chosen == 'q':
+            exit(0)
+        try:
+            chosen = int(chosen)
+        except ValueError:
+            print(e)
+        if chosen not in options:
+            raise TypeError(e)
 
-es = [[6, 5, 8, 4, 7, 9, 1, 3, 2],
-      [7, 4, 3, 1, 6, 2, 5, 9, 8],
-      [2, 9, 1, 5, 3, 8, 7, 6, 4],
-      [9, 6, 2, 3, 4, 5, 8, 7, 1],
-      [8, 1, 5, 7, 2, 6, 3, 4, 9],
-      [4, 3, 7, 8, 9, 1, 2, 5, 6],
-      [1, 7, 9, 2, 5, 4, 6, 8, 3],
-      [5, 8, 6, 9, 1, 3, 4, 2, 7],
-      [3, 2, 4, 6, 8, 7, 9, 1, 5]]
+        b = Board(boards_sols[chosen][0])
+        bs = boards_sols[chosen][1]
 
-e1 = [[6, 1, 3, 4, 5, 9, 7, None, 2],
-      [None, 4, 3, 1, None, 2, None, 9, None],
-      [2, None, 1, None, None, 8, None, 6, 4],
-      [9, None, None, None, None, None, 8, 7, 1],
-      [8, None, 5, 7, 2, None, 3, None, None],
-      [4, 3, 7, None, None, 1, 2, None, 6],
-      [None, 7, None, None, 5, None, 6, None, None],
-      [None, None, 6, 9, None, 3, 4, None, None],
-      [1, 2, 4, 6, 7, 8, 9, None, 5]]
-
-esr = [[6, 5, 8, 4, 7, 9, 1, 3, 2],
-       [7, 4, 3, 1, 6, 2, 5, 9, 8],
-       [2, 9, 1, 5, 3, 8, 7, 6, 4],
-       [9, 6, 2, 3, 4, 5, 8, 7, 1],
-       [8, 1, 5, 7, 2, 6, 3, 4, 9],
-       [4, 3, 7, 8, 9, 1, 2, 5, 6],
-       [1, 7, 9, 2, 5, 4, 6, 8, 3],
-       [5, 8, 6, 9, 1, 3, 4, 2, 7],
-       [3, 2, 4, 6, 8, 7, 9, 1, 1]]
-
-e2 = [[6, None, None, None, None, None, None, None, 4],
-      [None, None, 9, None, 8, None, 2, None, 1],
-      [None, 3, None, None, None, 9, None, None, None],
-      [None, 5, None, 1, None, None, 6, None, 2],
-      [None, None, None, None, 6, None, None, 3, None],
-      [None, None, 2, None, None, None, None, 4, None],
-      [None, None, None, None, None, None, None, 6, None],
-      [7, None, None, 5, None, None, None, None, None],
-      [None, None, 3, None, 1, None, 8, None, 9]]
-
-es2 = [[6, 2, 8, 7, 5, 1, 3, 9, 4],
-       [4, 7, 9, 3, 8, 6, 2, 5, 1],
-       [1, 3, 5, 4, 2, 9, 7, 8, 6],
-       [9, 5, 4, 1, 3, 8, 6, 7, 2],
-       [8, 1, 7, 2, 6, 4, 9, 3, 5],
-       [3, 6, 2, 9, 7, 5, 1, 4, 8],
-       [2, 9, 1, 8, 4, 3, 5, 6, 7],
-       [7, 8, 6, 5, 9, 2, 4, 1, 3],
-       [5, 4, 3, 6, 1, 7, 8, 2, 9]]
-
-b0 = Board(e0)
-print('Board:')
-print(b0)
-b0.solve()
-print('Solved:')
-print(b0)
-v = b0.verify_board(es)
-print(f'Verified: {v if v is not None else True}\n')
-
-# b1 = Board(e1)
-# print('Board:')
-# print(b1)
-# b1.solve()
-# print('Solved:')
-# print(b1)
-
-b2 = Board(e2)
-print('Board:')
-print(b2)
-try:
-    b2.solve()
-    print('Solved:')
-except ValueError as e:
-    print(e)
-    print('Unsolved:')
-print(b2)
-v = b0.verify_board(es)
-print(f'Verified: {v if v is not None else True}\n')
+        print('Board:')
+        print(b)
+        try:
+            b.solve()
+            print('Solved:')
+        except ValueError as e:
+            print(e)
+            print('Unsolved:')
+        print(b)
+        v = b.verify_board(bs)
+        print(f'Verified: {v if v is not None else True}\n')
