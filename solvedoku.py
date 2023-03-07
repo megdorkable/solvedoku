@@ -201,17 +201,41 @@ class Board:
         block = self.block[block_num]
         if not block[val]:
             found = None
+            all_found = []
             block_range = self.__get_block_range(block_num)
             for idx in block_range[0]:
                 for idy in block_range[1]:
                     if val in poss_group[idx][idy]:
                         if found is None:
                             found = (idx, idy)
-                        else:
-                            return None
-            return found
-        else:
-            return None
+                        all_found.append((idx, idy))
+            if len(all_found) == 1:
+                return found
+            else:
+                found_row = all_found[0][0]
+                found_col = all_found[0][1]
+                for f in all_found[1:]:
+                    if f[0] != found_row:
+                        found_row = None
+                    if f[1] != found_col:
+                        found_col = None
+                if found_row is not None:
+                    keep_cols = [col for (row, col) in all_found]
+                    for idy, _ in enumerate(poss_group[found_row]):
+                        if idy not in keep_cols:
+                            try:
+                                poss_group[found_row][idy].remove(val)
+                            except ValueError:
+                                pass
+                if found_col is not None:
+                    keep_rows = [row for (row, col) in all_found]
+                    for idx, _ in enumerate(poss_group):
+                        if idx not in keep_rows:
+                            try:
+                                poss_group[idx][found_col].remove(val)
+                            except ValueError:
+                                pass
+        return None
 
     def verify_board(self, solution: List[List]) -> Tuple | None:
         for x, row in enumerate(self.sol_arr):
@@ -261,6 +285,26 @@ esr = [[6, 5, 8, 4, 7, 9, 1, 3, 2],
        [5, 8, 6, 9, 1, 3, 4, 2, 7],
        [3, 2, 4, 6, 8, 7, 9, 1, 1]]
 
+e2 = [[6, None, None, None, None, None, None, None, 4],
+      [None, None, 9, None, 8, None, 2, None, 1],
+      [None, 3, None, None, None, 9, None, None, None],
+      [None, 5, None, 1, None, None, 6, None, 2],
+      [None, None, None, None, 6, None, None, 3, None],
+      [None, None, 2, None, None, None, None, 4, None],
+      [None, None, None, None, None, None, None, 6, None],
+      [7, None, None, 5, None, None, None, None, None],
+      [None, None, 3, None, 1, None, 8, None, 9]]
+
+es2 = [[6, 2, 8, 7, 5, 1, 3, 9, 4],
+       [4, 7, 9, 3, 8, 6, 2, 5, 1],
+       [1, 3, 5, 4, 2, 9, 7, 8, 6],
+       [9, 5, 4, 1, 3, 8, 6, 7, 2],
+       [8, 1, 7, 2, 6, 4, 9, 3, 5],
+       [3, 6, 2, 9, 7, 5, 1, 4, 8],
+       [2, 9, 1, 8, 4, 3, 5, 6, 7],
+       [7, 8, 6, 5, 9, 2, 4, 1, 3],
+       [5, 4, 3, 6, 1, 7, 8, 2, 9]]
+
 b0 = Board(e0)
 print('Board:')
 print(b0)
@@ -276,3 +320,16 @@ print(f'Verified: {v if v is not None else True}\n')
 # b1.solve()
 # print('Solved:')
 # print(b1)
+
+b2 = Board(e2)
+print('Board:')
+print(b2)
+try:
+    b2.solve()
+    print('Solved:')
+except ValueError as e:
+    print(e)
+    print('Unsolved:')
+print(b2)
+v = b0.verify_board(es)
+print(f'Verified: {v if v is not None else True}\n')
