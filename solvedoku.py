@@ -292,6 +292,34 @@ class Board:
                                 pass
         return None
 
+    def solve_recurse(self) -> None:
+        grid = numpy.array(self.inp_arr)
+        grid = self.__solve_recurse_inner(grid)
+        if grid is not None:
+            self.sol_arr = grid
+        else:
+            raise ValueError("The given board is unsolvable.")
+
+    def __solve_recurse_inner(self, grid: numpy.ndarray) -> numpy.ndarray:
+        for idx, row in enumerate(grid):
+            for idy, col_val in enumerate(row):
+                if col_val is None:
+                    col = grid[:, idy]
+
+                    block_num = self.__get_block_num(idx, idy)
+                    block_range = self.__get_block_range(block_num)
+                    block = grid[numpy.ix_(
+                        block_range[0], block_range[1])].flatten()
+                    for val in range(1, 10):
+                        if val not in row and val not in col and val not in block:
+                            grid[idx][idy] = val
+                            if self.__solve_recurse_inner(grid) is not None:
+                                return grid
+                            else:
+                                grid[idx][idy] = None
+                    return None
+        return grid
+
     def verify_board(self, solution: List[List]) -> Tuple | None:
         for x, row in enumerate(self.sol_arr):
             for y, val in enumerate(row):
@@ -322,6 +350,7 @@ if __name__ == '__main__':
         print(b)
         try:
             b.solve()
+            # b.solve_recurse()
             print('Solved:')
         except ValueError as e:
             print(e)
