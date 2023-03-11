@@ -118,7 +118,7 @@ class Board:
             poss = self.__solve_poss(poss)
             for idx, row in enumerate(self.row):
                 for val in range(0, 9):
-                    found = self.__solve_row(row, val, poss[idx])
+                    found = self.__solve_row(idx, row, val, poss)
                     if found:
                         self.__set_tile(idx=idx, idy=found, val=val)
                         poss[idx][found] = []
@@ -169,34 +169,70 @@ class Board:
                     curr_poss[idx][idy] = []
         return curr_poss
 
-    def __solve_row(self, row: List[List], val: int, poss_group: List[List[List]]) -> int | None:
+    def __solve_row(self, row_num: int, row: List[List], val: int, poss_group: List[List[List]]) -> int | None:
         if not row[val]:
             found = None
-            for idy, col in enumerate(poss_group):
+            all_found = []
+            for idy, col in enumerate(poss_group[row_num]):
                 if val in col:
                     if found is None:
                         found = idy
-                    else:
-                        return None
-            return found
-        else:
-            return None
+                    all_found.append(idy)
+            if len(all_found) == 1:
+                return found
+            elif len(all_found) > 1:
+                # naked pairs
+                all_found_poss = [poss_group[row_num][idy]
+                                  for idy in all_found]
+                for idx, x in enumerate(all_found_poss):
+                    found_match = [(idx, x)]
+                    for idy, y in enumerate(all_found_poss):
+                        if idx != idy and x == y:
+                            found_match.append((idy, y))
+                    if len(found_match) == len(found_match[0][1]):
+                        for idz, _ in enumerate(all_found_poss):
+                            if idz not in [ind for (ind, _) in found_match]:
+                                for val in found_match[0][1]:
+                                    try:
+                                        poss_group[row_num][
+                                            all_found[idz]].remove(val)
+                                    except ValueError:
+                                        pass
+        return None
 
-    def __solve_col(self, idy: int, col: List[List], val: int, poss_group: List[List[List]]) -> int | None:
+    def __solve_col(self, col_num: int, col: List[List], val: int, poss_group: List[List[List]]) -> int | None:
         if not col[val]:
             found = None
+            all_found = []
             column_poss = []
             for row in range(0, 9):
-                column_poss.append(poss_group[row][idy])
+                column_poss.append(poss_group[row][col_num])
             for idx, row in enumerate(column_poss):
                 if val in row:
                     if found is None:
                         found = idx
-                    else:
-                        return None
-            return found
-        else:
-            return None
+                    all_found.append(idx)
+            if len(all_found) == 1:
+                return found
+            elif len(all_found) > 1:
+                # naked pairs
+                all_found_poss = [poss_group[idx][col_num]
+                                  for idx in all_found]
+                for idx, x in enumerate(all_found_poss):
+                    found_match = [(idx, x)]
+                    for idy, y in enumerate(all_found_poss):
+                        if idx != idy and x == y:
+                            found_match.append((idy, y))
+                    if len(found_match) == len(found_match[0][1]):
+                        for idz, _ in enumerate(all_found_poss):
+                            if idz not in [ind for (ind, _) in found_match]:
+                                for val in found_match[0][1]:
+                                    try:
+                                        poss_group[all_found[idz]][
+                                            col_num].remove(val)
+                                    except ValueError:
+                                        pass
+        return None
 
     def __solve_block(self, block_num: int, val: int, poss_group: List[List[List]]) -> Tuple[int, int] | None:
         block = self.block[block_num]
@@ -213,6 +249,24 @@ class Board:
             if len(all_found) == 1:
                 return found
             elif len(all_found) > 1:
+                # naked pairs
+                all_found_poss = [poss_group[idx][idy]
+                                  for (idx, idy) in all_found]
+                for idx, x in enumerate(all_found_poss):
+                    found_match = [(idx, x)]
+                    for idy, y in enumerate(all_found_poss):
+                        if idx != idy and x == y:
+                            found_match.append((idy, y))
+                    if len(found_match) == len(found_match[0][1]):
+                        for idz, _ in enumerate(all_found_poss):
+                            if idz not in [ind for (ind, _) in found_match]:
+                                for val in found_match[0][1]:
+                                    try:
+                                        poss_group[all_found[idz][0]
+                                                   ][all_found[idz][1]].remove(val)
+                                    except ValueError:
+                                        pass
+                # if val is only possible in one row or column of this block, eliminate val from the other block poss's
                 found_row = all_found[0][0]
                 found_col = all_found[0][1]
                 for f in all_found[1:]:
