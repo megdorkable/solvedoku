@@ -6,13 +6,24 @@ from test_boards import boards_sols
 
 
 class Board:
-    def __init__(self, grid: List[List]) -> None:
+    """Represents a Sudoku board"""
+
+    def __init__(self, grid: List[List[int]]) -> None:
+        """Initialize a new Board
+
+        Args:
+            grid (List[List]): A 9x9 2D array of integers from 1 through 9
+
+        Raises:
+            TypeError: If grid has the wrong dimensions, or contains values that are not integers from 1 through 9
+        """
+        # - Verify grid
         correct = True
         if not isinstance(grid, list):
             correct = False
         elif len(grid) == 9:
             for row in grid:
-                if len(row) != 9:
+                if not isinstance(row, list) or len(row) != 9:
                     correct = False
                 for col in row:
                     if not (isinstance(col, type(None)) or (isinstance(col, int) and col in range(1, 10))):
@@ -23,12 +34,28 @@ class Board:
             raise TypeError(
                 "The given value for 'arr' is not a 9x9 list of integers.")
 
-        self.grid_orig = np.array(grid).tolist()
-        self.grid = np.array(grid).tolist()
-        self.unsolved = 9 * 9
+        # - Original grid, will not be changed through solving
+        self.grid_orig: List[List] = np.array(grid).tolist()
+        # - Grid, will be changed through solving
+        self.grid: List[List] = np.array(grid).tolist()
+        # - Number of unsolved tiles
+        self.unsolved: int = 9 * 9
+        # - Lists of true/false based on what values are contained in rows, columns, and blocks
+        self.row_has: List[List[bool]]
+        self.col_has: List[List[bool]]
+        self.block_has: List[List[bool]]
         self.row_has, self.col_has, self.block_has = self.__gen_row_col_block()
+        # - Lists of possibile integers for each tile in the Board
+        self.poss: List[List[List[int]]] = np.full((9, 9, 9), np.arange(0, 9)).tolist()
 
     def __repr__(self) -> str:
+        """Represent a board by separating each block with bars,
+        such that each 3x3 block is surrounded by the appropriate column and row separators.
+        This makes things look more readable like a normal Sudoku board.
+
+        Returns:
+            str: The string representation of a Board.
+        """
         rbar = '--' * 9 + '-' * (4 * 2 - 1) + '\n'
         s = ''
         for idx, row in enumerate(self.grid):
@@ -48,9 +75,34 @@ class Board:
         return s
 
     def __str__(self) -> str:
+        """When converted to a string, a Board should be the same as its __repr__ representation.
+
+        Returns:
+            str: The string representation of a Board.
+        """
         return self.__repr__()
 
+    def poss_tostring(self) -> str:
+        poss_str = ""
+        for row in self.poss:
+            poss_str += str(row) + '\n'
+        return poss_str
+
     def __get_block_num(self, idx: int, idy: int) -> int | None:
+        """Given a row and column index, will return the block number.
+
+        0 1 2
+        3 4 5
+        6 7 8
+
+        Args:
+            idx (int): row index from 0 through 8
+            idy (int): column index from 0 through 8
+
+        Returns:
+            int | None: The block number between from 0 through 8, or None if the indices are not within the correct
+                        dimensions.
+        """
         r0, r1, r2 = range(0, 3), range(3, 6), range(6, 9)
         if idx in r0 and idy in r0:
             return 0
@@ -74,6 +126,15 @@ class Board:
             return None
 
     def __get_block_range(self, block_num: int) -> Tuple[range, range] | None:
+        """Given a block number, will return the ranges for the row and column indices.
+
+        Args:
+            block_num (int): The block number from 0 through 8
+
+        Returns:
+            Tuple[range, range] | None: A tuple where the first value is the row index range and the second value is
+                                        the column index range.
+        """
         r0, r1, r2 = range(0, 3), range(3, 6), range(6, 9)
         if block_num == 0:
             return (r0, r0)
@@ -97,9 +158,15 @@ class Board:
             return None
 
     def __gen_row_col_block(self) -> Tuple[List[List[bool]], List[List[bool]], List[List[bool]]]:
-        row_has = np.full((9, 9), False)
-        col_has = np.full((9, 9), False)
-        block_has = np.full((9, 9), False)
+        """Generate the lists of what each row, column, and block contain.
+
+        Returns:
+            Tuple[List[List[bool]], List[List[bool]], List[List[bool]]]: A tuple of lists of what each row, column, and
+                block (respectively) contain, represented by a boolean for each value.
+        """
+        row_has: List[List[bool]] = np.full((9, 9), False)
+        col_has: List[List[bool]] = np.full((9, 9), False)
+        block_has: List[List[bool]] = np.full((9, 9), False)
         for idx, row in enumerate(self.grid):
             for idy, col in enumerate(row):
                 if not isinstance(col, type(None)):
@@ -110,51 +177,15 @@ class Board:
                     self.unsolved -= 1
         return (row_has, col_has, block_has)
 
-    def solve(self) -> None:
-        stuck = self.unsolved
-        poss = np.full((9, 9, 9), np.arange(0, 9)).tolist()
-        while self.unsolved > 0:
-            poss = self.__solve_poss(poss)
-            for idx, row in enumerate(self.row_has):
-                for val in range(0, 9):
-                    # found = self.__solve_row(idx, row, val, poss)
-                    found = self.__solve_row_col(0, idx, row, val, poss)
-                    if found:
-                        self.__set_tile(idx=idx, idy=found, val=val)
-                        poss[idx][found] = []
-            for idy, col in enumerate(self.col_has):
-                for val in range(0, 9):
-                    # found = self.__solve_col(idy, col, val, poss)
-                    found = self.__solve_row_col(1, idy, col, val, poss)
-                    if found:
-                        self.__set_tile(idx=found, idy=idy, val=val)
-                        poss[found][idy] = []
-            for block_num in range(0, 9):
-                for val in range(0, 9):
-                    found = self.__solve_block(block_num, val, poss)
-                    if found:
-                        self.__set_tile(idx=found[0], idy=found[1], val=val)
-                        poss[found[0]][found[1]] = []
-            if self.unsolved == stuck:
-                raise ValueError("The given board is unsolvable.")
-            stuck = self.unsolved
+    def __gen_poss(self, curr_poss: List[List[List[int]]]) -> List[List[List[int]]]:
+        """Find the list of possibilities for each tile in the Board. This is similar to notes when solving by hand.
 
-    def __count_none(self):
-        count = 0
-        for row in self.grid:
-            for col in row:
-                if col is None:
-                    count += 1
-        return count
+        Args:
+            curr_poss (List[List[List[int]]]): The current list of possibilities for each tile.
 
-    def __set_tile(self, idx: int, idy: int, val: int):
-        self.grid[idx][idy] = val + 1
-        self.row_has[idx][val] = True
-        self.col_has[idy][val] = True
-        self.block_has[self.__get_block_num(idx, idy)][val] = True
-        self.unsolved -= 1
-
-    def __solve_poss(self, curr_poss: List[List[List]]) -> List[List[List]]:
+        Returns:
+            List[List[List[int]]]: The new list of possibilities for each tile.
+        """
         for idx, row in enumerate(self.grid):
             for idy, col in enumerate(row):
                 new_poss = []
@@ -165,35 +196,99 @@ class Board:
                             new_poss.append(curr_poss[idx][idy][idp])
                 curr_poss[idx][idy] = new_poss
                 if len(curr_poss[idx][idy]) == 1:
-                    self.__set_tile(idx=idx, idy=idy,
-                                    val=curr_poss[idx][idy][0])
+                    self.__set_tile(idx=idx, idy=idy, val=curr_poss[idx][idy][0])
                     curr_poss[idx][idy] = []
         return curr_poss
 
-    def __solve_row_col(self, which_rc: int, rc_num: int, rc_has: List[List],
-                        val: int, poss: List[List[List]]) -> int | None:
+    def __set_tile(self, idx: int, idy: int, val: int):
+        """Set the tile at the given indices to the given value.
+
+        Args:
+            idx (int): row index from 0 through 8
+            idy (int): column index from 0 through 8
+            val (int): value to set the tile to
+        """
+        self.grid[idx][idy] = val + 1
+        self.row_has[idx][val] = True
+        self.col_has[idy][val] = True
+        self.block_has[self.__get_block_num(idx, idy)][val] = True
+        self.poss[idx][idy] = []
+        self.unsolved -= 1
+
+    def solve(self) -> None:
+        """Find a solution for the Board.
+
+        Raises:
+            ValueError: If the Board is unsolveable.
+        """
+        stuck: int = self.unsolved
+        while self.unsolved > 0:
+            self.poss = self.__gen_poss(self.poss)
+            # - Solve by rows
+            for idx, row in enumerate(self.row_has):
+                for val in range(0, 9):
+                    found = self.__solve_row_col(0, idx, row, val)
+                    if found:
+                        self.__set_tile(idx=idx, idy=found, val=val)
+            # - Solve by columns
+            for idy, col in enumerate(self.col_has):
+                for val in range(0, 9):
+                    found = self.__solve_row_col(1, idy, col, val)
+                    if found:
+                        self.__set_tile(idx=found, idy=idy, val=val)
+            # - Solve by blocks
+            for block_num in range(0, 9):
+                for val in range(0, 9):
+                    found = self.__solve_block(block_num, val)
+                    if found:
+                        self.__set_tile(idx=found[0], idy=found[1], val=val)
+            if self.unsolved == stuck:
+                print(f"Possibilities when stuck: \n{self.poss_tostring()}")
+                raise ValueError("The given board is unsolvable.")
+            stuck = self.unsolved
+
+    def __solve_row_col(self, which_rc: int, rc_num: int, rc_has: List[List[bool]], val: int) -> int | None:
+        """Try to find a placement for a given value in either a row or a column. 
+        Called by self.solve().
+
+        Args:
+            which_rc (int): 0 to look at a row, 1 to look at a column
+            rc_num (int): Index of the row or column
+            rc_has (List[List[bool]]): List of true/false based on what values are contained in the row or column
+            val (int): The value to try to find a placement for
+            poss (List[List[List]]): The current list of possibilities for the Board
+
+        Returns:
+            int | None: Either the found placement for the value (row or column index), or None
+        """
+        # - If the value is not already in the row or column..
         if not rc_has[val]:
             found = None
             all_found = []
 
+            # - Generate the poss_group based on whether we are looking at a row or a column
             poss_group = []
             if which_rc:
                 for row_num in range(0, 9):
-                    poss_group.append(poss[row_num][rc_num])
+                    poss_group.append(self.poss[row_num][rc_num])
             else:
-                poss_group = poss[rc_num]
+                poss_group = self.poss[rc_num]
 
+            # - Find tiles for which the value is still possible
             for idx, rc in enumerate(poss_group):
                 if val in rc:
                     if found is None:
                         found = idx
                     all_found.append(idx)
+
+            # - If exactly one possible position for the value was found, return that position
             if len(all_found) == 1:
                 return found
+            # - If more than one possible position for the value was found, try to narrow down the possibilities
             elif len(all_found) > 1:
-                # naked pairs
-                all_found_poss = [poss[idx][rc_num]for idx in all_found] if which_rc else [
-                    poss[rc_num][idy] for idy in all_found]
+                # - naked pairs
+                all_found_poss = [self.poss[idx][rc_num]for idx in all_found] if which_rc else [
+                    self.poss[rc_num][idy] for idy in all_found]
                 for idx, x in enumerate(all_found_poss):
                     found_match = [(idx, x)]
                     for idy, y in enumerate(all_found_poss):
@@ -205,97 +300,48 @@ class Board:
                                 for val in found_match[0][1]:
                                     try:
                                         if which_rc:
-                                            poss[all_found[idz]][
-                                                rc_num].remove(val)
+                                            self.poss[all_found[idz]][rc_num].remove(val)
                                         else:
-                                            poss[rc_num][
-                                                all_found[idz]].remove(val)
+                                            self.poss[rc_num][all_found[idz]].remove(val)
                                     except ValueError:
                                         pass
         return None
 
-    def __solve_row(self, row_num: int, row: List[List], val: int, poss: List[List[List]]) -> int | None:
-        if not row[val]:
-            found = None
-            all_found = []
-            for idy, col in enumerate(poss[row_num]):
-                if val in col:
-                    if found is None:
-                        found = idy
-                    all_found.append(idy)
-            if len(all_found) == 1:
-                return found
-            elif len(all_found) > 1:
-                # naked pairs
-                all_found_poss = [poss[row_num][idy]
-                                  for idy in all_found]
-                for idx, x in enumerate(all_found_poss):
-                    found_match = [(idx, x)]
-                    for idy, y in enumerate(all_found_poss):
-                        if idx != idy and x == y:
-                            found_match.append((idy, y))
-                    if len(found_match) == len(found_match[0][1]):
-                        for idz, _ in enumerate(all_found_poss):
-                            if idz not in [ind for (ind, _) in found_match]:
-                                for val in found_match[0][1]:
-                                    try:
-                                        poss[row_num][
-                                            all_found[idz]].remove(val)
-                                    except ValueError:
-                                        pass
-        return None
+    def __solve_block(self, block_num: int, val: int) -> Tuple[int, int] | None:
+        """Try to find a placement for a given value in a block. 
+        Called by self.solve().
 
-    def __solve_col(self, col_num: int, col: List[List], val: int, poss: List[List[List]]) -> int | None:
-        if not col[val]:
-            found = None
-            all_found = []
-            column_poss = []
-            for row in range(0, 9):
-                column_poss.append(poss[row][col_num])
-            for idx, row in enumerate(column_poss):
-                if val in row:
-                    if found is None:
-                        found = idx
-                    all_found.append(idx)
-            if len(all_found) == 1:
-                return found
-            elif len(all_found) > 1:
-                # naked pairs
-                all_found_poss = [poss[idx][col_num]
-                                  for idx in all_found]
-                for idx, x in enumerate(all_found_poss):
-                    found_match = [(idx, x)]
-                    for idy, y in enumerate(all_found_poss):
-                        if idx != idy and x == y:
-                            found_match.append((idy, y))
-                    if len(found_match) == len(found_match[0][1]):
-                        for idz, _ in enumerate(all_found_poss):
-                            if idz not in [ind for (ind, _) in found_match]:
-                                for val in found_match[0][1]:
-                                    try:
-                                        poss[all_found[idz]][
-                                            col_num].remove(val)
-                                    except ValueError:
-                                        pass
-        return None
+        Args:
+            block_num (int): The number of the block
+            val (int): The value to try to find a placement for
 
-    def __solve_block(self, block_num: int, val: int, poss: List[List[List]]) -> Tuple[int, int] | None:
-        block = self.block_has[block_num]
-        if not block[val]:
+        Returns:
+            Tuple[int, int] | None: Either the found placement for the value as a tuple of (row index, column index),
+                                    or None
+        """
+        # - Get the list of booleans showing which values the "block_num" block contains
+        block_has = self.block_has[block_num]
+        # - If the value is not already in the block..
+        if not block_has[val]:
             found = None
             all_found = []
             block_range = self.__get_block_range(block_num)
+
+            # - Find tiles for which the value is still possible
             for idx in block_range[0]:
                 for idy in block_range[1]:
-                    if val in poss[idx][idy]:
+                    if val in self.poss[idx][idy]:
                         if found is None:
                             found = (idx, idy)
                         all_found.append((idx, idy))
+
+            # - If exactly one possible position for the value was found, return that position
             if len(all_found) == 1:
                 return found
+            # - If more than one possible position for the value was found, try to narrow down the possibilities
             elif len(all_found) > 1:
-                # naked pairs
-                all_found_poss = [poss[idx][idy]
+                # - naked pairs
+                all_found_poss = [self.poss[idx][idy]
                                   for (idx, idy) in all_found]
                 for idx, x in enumerate(all_found_poss):
                     found_match = [(idx, x)]
@@ -307,11 +353,11 @@ class Board:
                             if idz not in [ind for (ind, _) in found_match]:
                                 for val in found_match[0][1]:
                                     try:
-                                        poss[all_found[idz][0]
-                                             ][all_found[idz][1]].remove(val)
+                                        self.poss[all_found[idz][0]][all_found[idz][1]].remove(val)
                                     except ValueError:
                                         pass
-                # if val is only possible in one row or column of this block, eliminate val from the other block poss's
+                # - If val is only possible in one row or column of this block, eliminate val from the other block
+                # - possibilities in the one row or column
                 found_row = all_found[0][0]
                 found_col = all_found[0][1]
                 for f in all_found[1:]:
@@ -321,23 +367,28 @@ class Board:
                         found_col = None
                 if found_row is not None:
                     keep_cols = [col for (row, col) in all_found]
-                    for idy, _ in enumerate(poss[found_row]):
+                    for idy, _ in enumerate(self.poss[found_row]):
                         if idy not in keep_cols:
                             try:
-                                poss[found_row][idy].remove(val)
+                                self.poss[found_row][idy].remove(val)
                             except ValueError:
                                 pass
                 if found_col is not None:
                     keep_rows = [row for (row, col) in all_found]
-                    for idx, _ in enumerate(poss):
+                    for idx, _ in enumerate(self.poss):
                         if idx not in keep_rows:
                             try:
-                                poss[idx][found_col].remove(val)
+                                self.poss[idx][found_col].remove(val)
                             except ValueError:
                                 pass
         return None
 
     def solve_recurse(self) -> None:
+        """Solve the Board recursively (brute force).
+
+        Raises:
+            ValueError: If the Board is unsolveable.
+        """
         grid = np.array(self.grid_orig)
         grid = self.__solve_recurse_inner(grid)
         if grid is not None:
@@ -346,6 +397,14 @@ class Board:
             raise ValueError("The given board is unsolvable.")
 
     def __solve_recurse_inner(self, grid: np.ndarray) -> np.ndarray:
+        """Inner method for self.solve_recurse().
+
+        Args:
+            grid (np.ndarray): The current grid being solved.
+
+        Returns:
+            np.ndarray: The solved grid.
+        """
         for idx, row in enumerate(grid):
             for idy, col_val in enumerate(row):
                 if col_val is None:
@@ -365,7 +424,29 @@ class Board:
                     return None
         return grid
 
-    def verify_board(self, solution: List[List]) -> Tuple | None:
+    def __count_none(self) -> int:
+        """Check how many None values exist in the Board's current grid.
+
+        Returns:
+            int: The number of values that are None in the Board's current grid.
+        """
+        count = 0
+        for row in self.grid:
+            for col in row:
+                if col is None:
+                    count += 1
+        return count
+
+    def verify_board(self, solution: List[List[int]]) -> Tuple[int, int] | None:
+        """Check if the Board's grid is equal to the given solution.
+
+        Args:
+            solution (List[List[int]]): Solution array to check the Board's grid against.
+
+        Returns:
+            Tuple[int, int] | None: Either a tuple of two integers representing the (row index, column index) of the
+                                    first error found, or None if no errors are found.
+        """
         for x, row in enumerate(self.grid):
             for y, val in enumerate(row):
                 if val is not None and val != solution[x][y]:
