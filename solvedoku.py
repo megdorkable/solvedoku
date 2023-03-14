@@ -83,9 +83,27 @@ class Board:
         return self.__repr__()
 
     def poss_tostring(self) -> str:
+        """Create a string with the current possibilities/notes with appropriate spacing (by row and column).
+
+        Returns:
+            str: The current possibilities/notes as a pretty string.
+        """
         poss_str = ""
+
+        col_lengths = []
+        for col_num in range(0, 9):
+            col_max_len = 0
+            for row_num in range(0, 9):
+                col_max_len = max(col_max_len, len(self.poss[row_num][col_num]))
+            col_lengths.append(col_max_len)
+
         for row in self.poss:
-            poss_str += str(row) + '\n'
+            for idy, col in enumerate(row):
+                spaces_to_add = (col_lengths[idy] - len(col)) * 3
+                if len(col) != 0:
+                    spaces_to_add += 2
+                poss_str += str(col) + ' ' * spaces_to_add
+            poss_str += '\n'
         return poss_str
 
     def __get_block_num(self, idx: int, idy: int) -> int | None:
@@ -254,7 +272,7 @@ class Board:
             stuck = self.unsolved
 
     def __solve_row_col(self, which_rc: int, rc_num: int, rc_has: List[List[bool]], val: int) -> int | None:
-        """Try to find a placement for a given value in either a row or a column. 
+        """Try to find a placement for a given value in either a row or a column.
         Called by self.solve().
 
         Args:
@@ -314,7 +332,7 @@ class Board:
         return None
 
     def __solve_block(self, block_num: int, val: int) -> Tuple[int, int] | None:
-        """Try to find a placement for a given value in a block. 
+        """Try to find a placement for a given value in a block.
         Called by self.solve().
 
         Args:
