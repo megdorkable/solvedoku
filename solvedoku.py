@@ -222,6 +222,7 @@ class Board:
             ValueError: If the Board is unsolveable.
         """
         stuck: int = self.unsolved
+        tried_xy_wing: bool = False
         while self.unsolved > 0:
             self.poss = self.__gen_poss(self.poss)
             # - Solve by rows
@@ -242,9 +243,14 @@ class Board:
                     found = self.__solve_block(block_num, val)
                     if found:
                         self.__set_tile(idx=found[0], idy=found[1], val=val)
-            if self.unsolved == stuck:
+            if self.unsolved == stuck and not tried_xy_wing:
+                self.__solve_xy_wing()
+                tried_xy_wing = True
+            elif self.unsolved == stuck:
                 print(f"Possibilities when stuck: \n{self.poss_tostring()}")
                 raise ValueError("The given board is unsolvable.")
+            else:
+                tried_xy_wing = False
             stuck = self.unsolved
 
     def __solve_row_col(self, which_rc: int, rc_num: int, rc_has: List[List[bool]], val: int) -> int | None:
@@ -382,6 +388,75 @@ class Board:
                             except ValueError:
                                 pass
         return None
+
+    def __solve_xy_wing(self):
+        # - Find intersects: tiles with only 2 possibilities
+        # - Create an intersects list of [(row index, column index, List of wings)]
+        intersects: List[Tuple[int, int, List[Tuple[int, int]]]] = []
+        for idx, row in enumerate(self.poss):
+            for idy, col in enumerate(row):
+                if len(col) == 2:
+                    intersects.append((idx, idy, []))
+
+        # - Find the possible wings for each intersect
+        for idx, idy, wings in intersects:
+            # - The possible wings should be made up of other possible intersects
+            for wing_idx, wing_idy, _ in intersects:
+                # - A wing cannot be the same tile as the intersect
+                if idx != wing_idx or idy != wing_idy:
+                    # - A wing has to have the same row, column, or block as the intersect
+                    if idx == wing_idx or idy == wing_idy or \
+                       self.__get_block_num(idx, idy) == self.__get_block_num(wing_idx, wing_idy):
+                        # - A wing cannot have the exact same possibilites as the intersect
+                        if self.poss[idx][idy] != self.poss[wing_idx][wing_idy]:
+                            # - A wing must have one of the same possibilities as the intersect
+                            for val in self.poss[idx][idy]:
+                                if val in self.poss[wing_idx][wing_idy]:
+                                    wings.append((wing_idx, wing_idy))
+                                    break
+
+        # - For each intersect..
+        for idx, idy, wings in intersects:
+            intersect = self.poss[idx][idy]
+            # - For each possible wing of that intersect..
+            for wing_row, wing_col in wings:
+                wing_poss = self.poss[wing_row][wing_col]
+                uncommon = list(set(intersect) ^ set(wing_poss))
+                # - Try to find a second wing
+                for second_wing_row, second_wing_col in wings:
+                    # - The second wing cannot intersect the first wing
+                    if wing_row != second_wing_row and wing_col != second_wing_col and \
+                        self.__get_block_num(wing_row, wing_col) != self.__get_block_num(second_wing_row,
+                                                                                         second_wing_col):
+                        second_wing_poss = self.poss[second_wing_row][second_wing_col]
+                        # - The values that are only in one of intersect's or the first wing's possibilities,
+                        # - but not in both, must be equal to the second wing's possibilities
+                        if uncommon == second_wing_poss:
+                            # - Remove the common value that both of the wing's have from everywhere that intersects
+                            # - both of the wings
+                            common = list(set(wing_poss) & set(second_wing_poss))[0]
+                            # - Remove where tile intersects one wing's row and the other wing's column
+                            try:
+                                self.poss[wing_row][second_wing_col].remove(common)
+                            except ValueError:
+                                pass
+                            try:
+                                self.poss[second_wing_row][wing_col].remove(common)
+                            except ValueError:
+                                pass
+                            # - Remove where tile intersects one wing's block, and the other wing's row or column
+                            for wing_idx, wing_idy, other_idx, other_idy in \
+                                [(wing_row, wing_col, second_wing_row, second_wing_col),
+                                 (second_wing_row, second_wing_col, wing_row, wing_col)]:
+                                block_num = self.__get_block_num(wing_idx, wing_idy)
+                                block_range = self.__get_block_range(block_num)
+                                for block_idx in block_range[0]:
+                                    for block_idy in block_range[1]:
+                                        if block_idx == other_idx or block_idy == other_idy:
+                                            try:
+                                                self.poss[block_idx][block_idy].remove(common)
+                                            except ValueError:
+                                                pass
 
     def solve_recurse(self) -> None:
         """Solve the Board recursively (brute force).
