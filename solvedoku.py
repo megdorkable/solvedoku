@@ -329,6 +329,7 @@ class Board:
                                             self.poss[rc_num][all_found[idz]].remove(val)
                                     except ValueError:
                                         pass
+            # - If found in exactly 2 places, attempt to solve with an X Wing
             if len(all_found) == 2:
                 self.__solve_x_wing(which_rc, rc_num, val, all_found)
         return None
@@ -409,10 +410,19 @@ class Board:
                                 pass
         return None
 
-    def __solve_x_wing(self, which_rc: int, rc_num: int, val: int,
-                       pair: List[int]):
-        # print(f'Trying X Wing with val {val} and pair {pair}')
+    def __solve_x_wing(self, which_rc: int, rc_num: int, val: int, pair: List[int]):
+        """Try to eliminate possibilities based on the X Wing strategy.
+        If a value exists in exactly 2 places in a row or column ('pair', given), and there exists a second row or
+        column in which the value exists in the same two places and only those places, eliminate the value from the
+        other tiles in the 2 matching rows or columns.
+        Called by self.solve().
 
+        Args:
+            which_rc (int): 0 to look at a row, 1 to look at a column
+            rc_num (int): Index of the row or column
+            val (int): The value to try to eliminate as a possibility
+            pair (List[int]): The pair of exactly 2 places at which the value exists in the given row or column.
+        """
         # - If working with columns, transpose self.poss
         all_poss_groups = []
         if which_rc:
@@ -435,9 +445,12 @@ class Board:
                         if val in rc:
                             all_found.append(idy)
 
+                    # - If found in exactly 2 places..
                     if len(all_found) == 2:
+                        # - If the places found are the same as the pair we started with..
                         if all_found[0] == pair[0] and all_found[1] == pair[1]:
-                            # print(f'val {val}\npair {pair}\nidx {idx}\nall_found {all_found}\n')
+                            # - Eliminate the val from the other poss's in the same row or column that are not a part
+                            # - of the X Wing
                             for idz, rc_elim_poss in enumerate(all_poss_groups):
                                 if idz != idx and idz != rc_num:
                                     for idfound in all_found:
@@ -447,6 +460,9 @@ class Board:
                                             pass
 
     def __solve_xy_wing(self):
+        """Try to eliminate possibilities based on the XY Wing strategy.
+        Called by self.solve().
+        """
         # - Find intersects: tiles with only 2 possibilities
         # - Create an intersects list of [(row index, column index, List of wings)]
         intersects: List[Tuple[int, int, List[Tuple[int, int]]]] = []
