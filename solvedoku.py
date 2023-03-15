@@ -329,6 +329,8 @@ class Board:
                                             self.poss[rc_num][all_found[idz]].remove(val)
                                     except ValueError:
                                         pass
+            if len(all_found) == 2:
+                self.__solve_x_wing(which_rc, rc_num, val, all_found)
         return None
 
     def __solve_block(self, block_num: int, val: int) -> Tuple[int, int] | None:
@@ -406,6 +408,43 @@ class Board:
                             except ValueError:
                                 pass
         return None
+
+    def __solve_x_wing(self, which_rc: int, rc_num: int, val: int,
+                       pair: List[int]):
+        # print(f'Trying X Wing with val {val} and pair {pair}')
+
+        # - If working with columns, transpose self.poss
+        all_poss_groups = []
+        if which_rc:
+            all_poss_groups = [list(x) for x in zip(*self.poss)]
+        else:
+            all_poss_groups = self.poss
+
+        # - For every row or column..
+        for idx, rc_poss in enumerate(all_poss_groups):
+            # - If the row or column number is not equal to the same row or column that we have already found..
+            if idx != rc_num:
+                rc_has = self.col_has[idx] if which_rc else self.row_has[idx]
+
+                # - If the value is not already in the row or column..
+                if not rc_has[val]:
+                    all_found = []
+
+                    # - Find tiles for which the value is still possible
+                    for idy, rc in enumerate(rc_poss):
+                        if val in rc:
+                            all_found.append(idy)
+
+                    if len(all_found) == 2:
+                        if all_found[0] == pair[0] and all_found[1] == pair[1]:
+                            # print(f'val {val}\npair {pair}\nidx {idx}\nall_found {all_found}\n')
+                            for idz, rc_elim_poss in enumerate(all_poss_groups):
+                                if idz != idx and idz != rc_num:
+                                    for idfound in all_found:
+                                        try:
+                                            rc_elim_poss[idfound].remove(val)
+                                        except ValueError:
+                                            pass
 
     def __solve_xy_wing(self):
         # - Find intersects: tiles with only 2 possibilities
