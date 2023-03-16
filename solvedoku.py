@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 # solvedoku.py
 import numpy as np
+import itertools
 from typing import Tuple, List
 from test_boards import boards_sols
 
@@ -329,9 +330,10 @@ class Board:
                                             self.poss[rc_num][all_found[idz]].remove(val)
                                     except ValueError:
                                         pass
-            # - If found in exactly 2 places, attempt to solve with an X Wing
+            # - If found in exactly 2 places, attempt to solve with an X Wing, and Swordfish
             if len(all_found) == 2:
                 self.__solve_x_wing(which_rc, rc_num, val, all_found)
+                self.__solve_swordfish(which_rc, rc_num, val, all_found)
         return None
 
     def __solve_block(self, block_num: int, val: int) -> Tuple[int, int] | None:
@@ -383,8 +385,7 @@ class Board:
                                         self.poss[all_found[idz][0]][all_found[idz][1]].remove(val)
                                     except ValueError:
                                         pass
-                # - If val is only possible in one row or column of this block, eliminate val from the other block
-                # - possibilities in the one row or column
+                # - pointing pairs/triples
                 found_row = all_found[0][0]
                 found_col = all_found[0][1]
                 for f in all_found[1:]:
@@ -410,7 +411,7 @@ class Board:
                                 pass
         return None
 
-    def __solve_x_wing(self, which_rc: int, rc_num: int, val: int, pair: List[int]):
+    def __solve_x_wing(self, which_rc: int, rc_num: int, val: int, pair: List[int]) -> None:
         """Try to eliminate possibilities based on the X Wing strategy.
         If a value exists in exactly 2 places in a row or column ('pair', given), and there exists a second row or
         column in which the value exists in the same two places and only those places, eliminate the value from the
@@ -459,7 +460,7 @@ class Board:
                                         except ValueError:
                                             pass
 
-    def __solve_xy_wing(self):
+    def __solve_xy_wing(self) -> None:
         """Try to eliminate possibilities based on the XY Wing strategy.
         Called by self.solve().
         """
@@ -530,6 +531,79 @@ class Board:
                                                 self.poss[block_idx][block_idy].remove(common)
                                             except ValueError:
                                                 pass
+
+    def __solve_swordfish(self, which_rc: int, rc_num: int, val: int, pair: List[int]) -> None:
+        """Try to eliminate possibilities based on the Swordfish strategy. Similar to the X Wing strategy, but with 
+        3 rows or columns.
+        If a value exists in exactly 2 places in a row or column ('pair', given) and there exists two additional rows
+        or columns in which the value exists in exactly 2 places, if the original row or column and the first additional
+        row or column intersect in one place, the original row or column and the second additional row or column
+        intersect in one place, and the two additional rows or columns intersect in one place, eliminate the value from
+        the other tiles in the 3 intersecting rows or columns.
+        Called by self.solve().
+
+        Args:
+            which_rc (int): 0 to look at a row, 1 to look at a column
+            rc_num (int): Index of the row or column
+            val (int): The value to try to eliminate as a possibility
+            pair (List[int]): The pair of exactly 2 places at which the value exists in the given row or column.
+        """
+        found_rc: List[int] = [rc_num]
+        found_pairs: List[List[int]] = [pair]
+
+        # - If working with columns, transpose self.poss
+        all_poss_groups = []
+        if which_rc:
+            all_poss_groups = [list(x) for x in zip(*self.poss)]
+        else:
+            all_poss_groups = self.poss
+
+        # - For every row or column..
+        for idx, rc_poss in enumerate(all_poss_groups):
+            # - If the row or column number is not equal to the same row or column that we have already found..
+            if idx != rc_num:
+                rc_has = self.col_has[idx] if which_rc else self.row_has[idx]
+
+                # - If the value is not already in the row or column..
+                if not rc_has[val]:
+                    all_found = []
+
+                    # - Find tiles for which the value is still possible
+                    for idy, rc in enumerate(rc_poss):
+                        if val in rc:
+                            all_found.append(idy)
+
+                    # - If found in exactly 2 places..
+                    if len(all_found) == 2:
+                        # - If of the places found, exactly one exists in the pair we already found..
+                        if (all_found[0] in pair and all_found[1] not in pair) or \
+                                (all_found[0] not in pair and all_found[1] in pair):
+                            # - Add both the current index and the found places to the appropriate lists
+                            found_rc.append(idx)
+                            found_pairs.append(all_found)
+
+        # - If found at least 2 additional pairs..
+        if len(found_pairs) >= 3:
+            # - For every combination of those additional pairs (original pair at index 0 is kept each time)
+            for comb in itertools.combinations(range(1, len(found_pairs)), 2):
+                # - Common value between the original and first found pair
+                common = list(set(found_pairs[0]) & set(found_pairs[comb[0]]))[0]
+                # - Common value between the original and the second found pair
+                second_common = list(set(found_pairs[0]) & set(found_pairs[comb[1]]))[0]
+                try:
+                    # - If there exists a common value between the first and second found pair..
+                    third_common = list(set(found_pairs[comb[0]]) & set(found_pairs[comb[1]]))[0]
+                    # - Eliminate the val from the other poss's in the same row or column that are not a part
+                    # - of the Swordfish
+                    for idz, rc_elim_poss in enumerate(all_poss_groups):
+                        if idz not in found_rc:
+                            for idfound in [common, second_common, third_common]:
+                                try:
+                                    rc_elim_poss[idfound].remove(val)
+                                except ValueError:
+                                    pass
+                except IndexError:
+                    pass
 
     def solve_recurse(self) -> None:
         """Solve the Board recursively (brute force).
