@@ -108,14 +108,22 @@ class Board:
             poss_str += '\n'
         return poss_str
 
-    def copy(self, other_board):
-        self.grid_orig = other_board.grid_orig
-        self.grid = other_board.grid
-        self.unsolved = other_board.unsolved
-        self.poss = other_board.poss
-        self.row_has = other_board.row_has
-        self.col_has = other_board.col_has
-        self.block_has = other_board.block_has
+    def copy(self, other_board) -> None:
+        """Copies the values of another Board into this Board. (shallow copy)
+
+        Args:
+            other_board (Board): The Board whose values to copy over.
+        """
+        try:
+            self.grid_orig = other_board.grid_orig
+            self.grid = other_board.grid
+            self.unsolved = other_board.unsolved
+            self.poss = other_board.poss
+            self.row_has = other_board.row_has
+            self.col_has = other_board.col_has
+            self.block_has = other_board.block_has
+        except AttributeError:
+            return
 
     def __get_block_num(self, idx: int, idy: int) -> int | None:
         """Given a row and column index, will return the block number.
