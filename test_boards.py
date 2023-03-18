@@ -241,5 +241,25 @@ e11_sol = [[9, 2, 6, 7, 3, 8, 4, 5, 1],
            [2, 6, 3, 8, 5, 1, 9, 4, 7],
            [7, 9, 1, 3, 4, 2, 5, 6, 8]]
 
+e12 = [[1, None, None, None, None, 7, None, 9, None],
+       [None, 3, None, None, 2, None, None, None, 8],
+       [None, None, 9, 6, None, None, 5, None, None],
+       [None, None, 5, 3, None, None, 9, None, None],
+       [None, 1, None, None, 8, None, None, None, 2],
+       [6, None, None, None, None, 4, None, None, None],
+       [3, None, None, None, None, None, None, 1, None],
+       [None, 4, None, None, None, None, None, None, 7],
+       [None, None, 7, None, None, None, 3, None, None]]
+
+e12_sol = [[1, 6, 2, 8, 5, 7, 4, 9, 3],
+           [5, 3, 4, 1, 2, 9, 6, 7, 8],
+           [7, 8, 9, 6, 4, 3, 5, 2, 1],
+           [4, 7, 5, 3, 1, 2, 9, 8, 6],
+           [9, 1, 3, 5, 8, 6, 7, 4, 2],
+           [6, 2, 8, 7, 9, 4, 1, 3, 5],
+           [3, 5, 6, 4, 7, 8, 2, 1, 9],
+           [2, 4, 1, 9, 3, 5, 8, 6, 7],
+           [8, 9, 7, 2, 6, 1, 3, 5, 4]]
+
 boards_sols = [(e0, e0_sol), (e1_unsolv, e1_unsolv_sol), (e2, e2_sol), (e3, e3_sol), (e4, e4_sol), (e5, e5_sol),
-               (e6, e6_sol), (e7, e7_sol), (e8, e8_sol), (e9, e9_sol), (e10, e10_sol), (e11, e11_sol)]
+               (e6, e6_sol), (e7, e7_sol), (e8, e8_sol), (e9, e9_sol), (e10, e10_sol), (e11, e11_sol), (e12, e12_sol)]

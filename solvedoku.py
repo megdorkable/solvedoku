@@ -2,6 +2,7 @@
 # solvedoku.py
 import numpy as np
 import itertools
+import pickle
 from typing import Tuple, List, Dict
 from test_boards import boards_sols
 
@@ -106,6 +107,15 @@ class Board:
                 poss_str += str([x + 1 for x in col_val]) + ' ' * spaces_to_add
             poss_str += '\n'
         return poss_str
+
+    def copy(self, other_board):
+        self.grid_orig = other_board.grid_orig
+        self.grid = other_board.grid
+        self.unsolved = other_board.unsolved
+        self.poss = other_board.poss
+        self.row_has = other_board.row_has
+        self.col_has = other_board.col_has
+        self.block_has = other_board.block_has
 
     def __get_block_num(self, idx: int, idy: int) -> int | None:
         """Given a row and column index, will return the block number.
@@ -239,9 +249,11 @@ class Board:
 
         Raises:
             ValueError: If the Board is unsolveable.
+            RuntimeError: If the Board is invalid.
         """
         stuck: int = self.unsolved
-        tried_xy_wing: bool = False
+        tried_xy_wing = False
+        tried_last_resort = False
         while self.unsolved > 0:
             self.poss = self.__gen_poss(self.poss)
             # - Solve by rows
@@ -263,14 +275,20 @@ class Board:
                     found = self.__solve_block(block_num, val)
                     if found:
                         self.__set_tile(idx=found[0], idy=found[1], val=val)
+            if self.unsolved == stuck and not self.__has_rem_poss():
+                raise ValueError("The given board is invalid (there is no valid solution).")
             if self.unsolved == stuck and not tried_xy_wing:
                 self.__solve_xy_wing()
                 tried_xy_wing = True
+            elif self.unsolved == stuck and not tried_last_resort:
+                self.__solve_last_resort()
+                tried_last_resort = True
             elif self.unsolved == stuck:
                 print(f"Possibilities when stuck: \n{self.poss_tostring()}")
-                raise ValueError("The given board is unsolvable.")
+                raise RuntimeError("The given board cannot be solved with the currently implemented methods.")
             else:
                 tried_xy_wing = False
+                tried_last_resort = False
             stuck = self.unsolved
 
     def __solve_row_col(self, which_rc: int, rc_num: int, rc_has: List[List[bool]], val: int) -> int | None:
@@ -680,6 +698,31 @@ class Board:
                 except IndexError:
                     pass
 
+    def __solve_last_resort(self) -> None:
+        """Try each possibility in a tile and eliminate possibilities that result in an unsolvable board.
+
+        Raises:
+            ValueError: Every possibility for a tile has been tried, and none of them have resulted in a solvable board.
+        """
+        # - For every tile..
+        for idx, row in enumerate(self.poss):
+            for idy, col_poss_vals in enumerate(row):
+                # - If the tile still has a number of possibilities..
+                if len(col_poss_vals) > 0:
+                    # - Try setting each possibility and continue solving. If this possibility results in an unsolvable
+                    # - puzzle, reset the board and try the next possibility.
+                    for poss_val in col_poss_vals:
+                        save_state = pickle.dumps(self)
+                        self.__set_tile(idx, idy, poss_val)
+                        try:
+                            return self.solve()
+                        except ValueError:
+                            loaded = pickle.loads(save_state)
+                            self.copy(loaded)
+                            self.poss[idx][idy].remove(poss_val)
+                    # - If each possibility has been tried, and none of them have been solvable, raise a ValueError
+                    raise ValueError("The given board is invalid (there is no valid solution).")
+
     def solve_recurse(self) -> None:
         """Solve the Board recursively (brute force).
 
@@ -691,7 +734,7 @@ class Board:
         if grid is not None:
             self.grid = grid.tolist()
         else:
-            raise ValueError("The given board is unsolvable.")
+            raise ValueError("The given board is invalid (there is no valid solution).")
 
     def __solve_recurse_inner(self, grid: np.ndarray) -> np.ndarray:
         """Inner method for self.solve_recurse().
@@ -732,6 +775,13 @@ class Board:
                 if col is None:
                     count += 1
         return count
+
+    def __has_rem_poss(self) -> bool:
+        for row in self.poss:
+            for col_poss_vals in row:
+                if len(col_poss_vals) > 0:
+                    return True
+        return False
 
     def verify_board(self, solution: List[List[int]]) -> Tuple[int, int] | None:
         """Check if the Board's grid is equal to the given solution.
@@ -783,7 +833,7 @@ if __name__ == '__main__':
                     else:
                         b.solve()
                     print('Solved:')
-                except ValueError as e:
+                except (ValueError, RuntimeError) as e:
                     print(e)
                     print('Unsolved:')
                 print(b)
