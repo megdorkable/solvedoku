@@ -765,7 +765,7 @@ if __name__ == '__main__':
             recurse_toggle = not recurse_toggle
         else:
             if chosen == '':
-                chosen == default_val
+                chosen = default_val
             try:
                 chosen = int(chosen)
                 if chosen not in options:
