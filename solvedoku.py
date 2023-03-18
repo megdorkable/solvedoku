@@ -689,7 +689,7 @@ class Board:
         grid = np.array(self.grid_orig)
         grid = self.__solve_recurse_inner(grid)
         if grid is not None:
-            self.grid = grid
+            self.grid = grid.tolist()
         else:
             raise ValueError("The given board is unsolvable.")
 
@@ -752,32 +752,45 @@ class Board:
 
 if __name__ == '__main__':
     chosen = -1
+    recurse_toggle = False
     while chosen != 'q':
         options = [i for i, _ in enumerate(boards_sols)]
-        chosen = input(f"Choose a number out of {options} (or 'q' to exit): ")
+        default_val = options[-1]
+        chosen = input(f"Choose a number out of {options} (hit enter for default value: {default_val}), " +
+                       "'r' to toggle using recursive solve, 'q' to exit): ")
         e = 'You have not entered a valid number from the given options.'
         if chosen == 'q':
             exit(0)
-        try:
-            chosen = int(chosen)
-        except ValueError:
-            print(e)
-        if chosen not in options:
-            raise TypeError(e)
+        elif chosen == 'r':
+            recurse_toggle = not recurse_toggle
+        else:
+            if chosen == '':
+                chosen == default_val
+            try:
+                chosen = int(chosen)
+                if chosen not in options:
+                    raise TypeError('Chosen integer not in options. Please choose again.')
 
-        b = Board(boards_sols[chosen][0])
-        bs = boards_sols[chosen][1]
+                b = Board(boards_sols[chosen][0])
+                bs = boards_sols[chosen][1]
 
-        print('Board:')
-        print(b)
-        try:
-            b.solve()
-            # b.solve_recurse()
-            print('Solved:')
-        except ValueError as e:
-            print(e)
-            print('Unsolved:')
-        print(b)
-        # print(b.grid.tolist())
-        v = b.verify_board(bs)
-        print(f'Verified: {v if v is not None else True}\n')
+                print('Board:')
+                print(b)
+                try:
+                    if recurse_toggle:
+                        print('Solving recursively.')
+                        b.solve_recurse()
+                    else:
+                        b.solve()
+                    print('Solved:')
+                except ValueError as e:
+                    print(e)
+                    print('Unsolved:')
+                print(b)
+                if recurse_toggle:
+                    print(b.grid)
+                v = b.verify_board(bs)
+                print(f'Verified: {v if v is not None else True}\n')
+
+            except (ValueError, TypeError) as e:
+                print(f'\n{e}\n')
