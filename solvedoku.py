@@ -2,7 +2,7 @@
 # solvedoku.py
 import numpy as np
 import itertools
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 from test_boards import boards_sols
 
 
@@ -26,8 +26,8 @@ class Board:
             for row in grid:
                 if not isinstance(row, list) or len(row) != 9:
                     correct = False
-                for col in row:
-                    if not (isinstance(col, type(None)) or (isinstance(col, int) and col in range(1, 10))):
+                for col_val in row:
+                    if not (isinstance(col_val, type(None)) or (isinstance(col_val, int) and col_val in range(1, 10))):
                         correct = False
         else:
             correct = False
@@ -41,13 +41,13 @@ class Board:
         self.grid: List[List] = np.array(grid).tolist()
         # - Number of unsolved tiles
         self.unsolved: int = 9 * 9
+        # - Lists of possibile integers for each tile in the Board
+        self.poss: List[List[List[int]]] = np.full((9, 9, 9), np.arange(0, 9)).tolist()
         # - Lists of true/false based on what values are contained in rows, columns, and blocks
         self.row_has: List[List[bool]]
         self.col_has: List[List[bool]]
         self.block_has: List[List[bool]]
         self.row_has, self.col_has, self.block_has = self.__gen_row_col_block()
-        # - Lists of possibile integers for each tile in the Board
-        self.poss: List[List[List[int]]] = np.full((9, 9, 9), np.arange(0, 9)).tolist()
 
     def __repr__(self) -> str:
         """Represent a board by separating each block with bars,
@@ -62,13 +62,13 @@ class Board:
         for idx, row in enumerate(self.grid):
             if idx % 3 == 0:
                 s += rbar
-            for idy, col in enumerate(row):
+            for idy, col_val in enumerate(row):
                 if idy % 3 == 0:
                     s += '| '
-                if isinstance(col, type(None)):
+                if isinstance(col_val, type(None)):
                     s += '- '
                 else:
-                    s += str(col) + ' '
+                    s += str(col_val) + ' '
                 if idy == len(row) - 1:
                     s += '|'
             s += '\n'
@@ -91,7 +91,7 @@ class Board:
         """
         poss_str = ""
 
-        col_lengths = []
+        col_lengths: List[int] = []
         for col_num in range(0, 9):
             col_max_len = 0
             for row_num in range(0, 9):
@@ -99,11 +99,11 @@ class Board:
             col_lengths.append(col_max_len)
 
         for row in self.poss:
-            for idy, col in enumerate(row):
-                spaces_to_add = (col_lengths[idy] - len(col)) * 3
-                if len(col) != 0:
+            for idy, col_val in enumerate(row):
+                spaces_to_add = (col_lengths[idy] - len(col_val)) * 3
+                if len(col_val) != 0:
                     spaces_to_add += 2
-                poss_str += str(col) + ' ' * spaces_to_add
+                poss_str += str([x + 1 for x in col_val]) + ' ' * spaces_to_add
             poss_str += '\n'
         return poss_str
 
@@ -187,12 +187,13 @@ class Board:
         col_has: List[List[bool]] = np.full((9, 9), False)
         block_has: List[List[bool]] = np.full((9, 9), False)
         for idx, row in enumerate(self.grid):
-            for idy, col in enumerate(row):
-                if not isinstance(col, type(None)):
-                    idc = col - 1
+            for idy, col_val in enumerate(row):
+                if not isinstance(col_val, type(None)):
+                    idc = col_val - 1
                     row_has[idx][idc] = True
                     col_has[idy][idc] = True
                     block_has[self.__get_block_num(idx, idy)][idc] = True
+                    self.poss[idx][idy] = []
                     self.unsolved -= 1
         return (row_has, col_has, block_has)
 
@@ -206,17 +207,16 @@ class Board:
             List[List[List[int]]]: The new list of possibilities for each tile.
         """
         for idx, row in enumerate(self.grid):
-            for idy, col in enumerate(row):
+            for idy, col_val in enumerate(row):
                 new_poss = []
-                if col is None:
-                    for idp, p in enumerate(curr_poss[idx][idy]):
-                        if not self.row_has[idx][p] and not self.col_has[idy][p] and \
-                                not self.block_has[self.__get_block_num(idx, idy)][p]:
-                            new_poss.append(curr_poss[idx][idy][idp])
+                if col_val is None:
+                    for poss_val in curr_poss[idx][idy]:
+                        if not self.row_has[idx][poss_val] and not self.col_has[idy][poss_val] and \
+                                not self.block_has[self.__get_block_num(idx, idy)][poss_val]:
+                            new_poss.append(poss_val)
                 curr_poss[idx][idy] = new_poss
                 if len(curr_poss[idx][idy]) == 1:
-                    self.__set_tile(idx=idx, idy=idy, val=curr_poss[idx][idy][0])
-                    curr_poss[idx][idy] = []
+                    self.__set_tile(idx, idy, val=curr_poss[idx][idy][0])
         return curr_poss
 
     def __set_tile(self, idx: int, idy: int, val: int):
@@ -231,7 +231,7 @@ class Board:
         self.row_has[idx][val] = True
         self.col_has[idy][val] = True
         self.block_has[self.__get_block_num(idx, idy)][val] = True
-        self.poss[idx][idy] = []
+        self.poss = self.__gen_poss(self.poss)
         self.unsolved -= 1
 
     def solve(self) -> None:
@@ -245,19 +245,20 @@ class Board:
         while self.unsolved > 0:
             self.poss = self.__gen_poss(self.poss)
             # - Solve by rows
-            for idx, row in enumerate(self.row_has):
+            for idx, r_has in enumerate(self.row_has):
                 for val in range(0, 9):
-                    found = self.__solve_row_col(0, idx, row, val)
+                    found = self.__solve_row_col(0, idx, r_has, val)
                     if found:
                         self.__set_tile(idx=idx, idy=found, val=val)
             # - Solve by columns
-            for idy, col in enumerate(self.col_has):
+            for idy, c_has in enumerate(self.col_has):
                 for val in range(0, 9):
-                    found = self.__solve_row_col(1, idy, col, val)
+                    found = self.__solve_row_col(1, idy, c_has, val)
                     if found:
                         self.__set_tile(idx=found, idy=idy, val=val)
             # - Solve by blocks
             for block_num in range(0, 9):
+                self.__solve_hidden_groups(block_num)
                 for val in range(0, 9):
                     found = self.__solve_block(block_num, val)
                     if found:
@@ -288,8 +289,8 @@ class Board:
         """
         # - If the value is not already in the row or column..
         if not rc_has[val]:
-            found = None
-            all_found = []
+            # - all_found will be equal to a list of all row/column indices at which the val is possible
+            all_found: List[int] = []
 
             # - Generate the poss_group based on whether we are looking at a row or a column
             poss_group = []
@@ -302,13 +303,11 @@ class Board:
             # - Find tiles for which the value is still possible
             for idx, rc in enumerate(poss_group):
                 if val in rc:
-                    if found is None:
-                        found = idx
                     all_found.append(idx)
 
             # - If exactly one possible position for the value was found, return that position
             if len(all_found) == 1:
-                return found
+                return all_found[0]
             # - If more than one possible position for the value was found, try to narrow down the possibilities
             elif len(all_found) > 1:
                 # - naked pairs
@@ -349,34 +348,32 @@ class Board:
                                     or None
         """
         # - Get the list of booleans showing which values the "block_num" block contains
-        block_has = self.block_has[block_num]
+        block_has: List[bool] = self.block_has[block_num]
         # - If the value is not already in the block..
         if not block_has[val]:
-            found = None
-            all_found = []
-            block_range = self.__get_block_range(block_num)
+            # - all_found will be equal to a list of all tuples of (row, column) indices at which the val is possible
+            all_found: List[Tuple[int, int]] = []
+            # - Get (as a tuple) the ranges of row and columns within this block
+            block_range: Tuple[range, range] = self.__get_block_range(block_num)
 
             # - Find tiles for which the value is still possible
             for idx in block_range[0]:
                 for idy in block_range[1]:
                     if val in self.poss[idx][idy]:
-                        if found is None:
-                            found = (idx, idy)
                         all_found.append((idx, idy))
 
             # - If exactly one possible position for the value was found, return that position
             if len(all_found) == 1:
-                return found
+                return all_found[0]
             # - If more than one possible position for the value was found, try to narrow down the possibilities
             elif len(all_found) > 1:
                 # - naked pairs
-                all_found_poss = [self.poss[idx][idy]
-                                  for (idx, idy) in all_found]
-                for idx, x in enumerate(all_found_poss):
-                    found_match = [(idx, x)]
-                    for idy, y in enumerate(all_found_poss):
-                        if idx != idy and x == y:
-                            found_match.append((idy, y))
+                all_found_poss = [self.poss[idx][idy] for (idx, idy) in all_found]
+                for idx, poss_x in enumerate(all_found_poss):
+                    found_match = [(idx, poss_x)]
+                    for idy, poss_y in enumerate(all_found_poss):
+                        if idx != idy and poss_x == poss_y:
+                            found_match.append((idy, poss_y))
                     if len(found_match) == len(found_match[0][1]):
                         for idz, _ in enumerate(all_found_poss):
                             if idz not in [ind for (ind, _) in found_match]:
@@ -410,6 +407,84 @@ class Board:
                             except ValueError:
                                 pass
         return None
+
+    def __solve_hidden_groups(self, block_num: int) -> None:
+        """Try to eliminate possibilities based on the Hidden Pairs/Triples/Quads/.. strategy.
+        If there exists a group of values, for which those values appear in groups in the same number of tiles as the
+        number of values (e.g. a group of 2 values exists in the same 2 tiles in the block and only those 2 tiles),
+        eliminate all other possibilities from those tiles.
+        Called by self.solve().
+
+        Args:
+            block_num (int): The number of the block
+        """
+        # - Get (as a tuple) the ranges of row and columns within this block
+        block_range: Tuple[range, range] = self.__get_block_range(block_num)
+
+        # - For each tile in the block..
+        for idx in block_range[0]:
+            for idy in block_range[1]:
+                # - Get the possibilities for the tile
+                tile_poss: List[int] = self.poss[idx][idy]
+                if idx == 2 and idy == 8 and tile_poss == [0, 1, 7]:
+                    pass
+                # - If there are at least 3 possibilities..
+                # - (if there are 1 or 2 possibilities, this method could not reduce this number)
+                if len(tile_poss) >= 3:
+                    # - Count the number of occurances in all the block tiles of each possibility
+                    tile_poss_occur: Dict[int, int] = {val: 1 for val in tile_poss}
+                    # - Find the common values between the current tile and each other tile
+                    other_tiles_common: List[Tuple[int, int, List[int]]] = []
+
+                    # - For each other tile in the block..
+                    for other_idx in block_range[0]:
+                        for other_idy in block_range[1]:
+                            # - If it is not the same tile..
+                            if idx != other_idx or idy != other_idy:
+                                # - Get the possibilities that occur in both the original tile and the other tile
+                                common = list(set(tile_poss) & set(self.poss[other_idx][other_idy]))
+                                # - If the two tiles have at least 1 common possibility..
+                                if len(common) >= 1:
+                                    common.sort()
+                                    # - Add the indices and common values to other_tiles_common
+                                    other_tiles_common.append((other_idx, other_idy, common))
+                                    # - Increment the found occurences of the common possibilities
+                                    for poss_val in common:
+                                        tile_poss_occur[poss_val] += 1
+                    # - Map the occurence values to each possibility that occured that number of times
+                    tile_poss_occur_flipped: Dict[int, List[int]] = {}
+
+                    for key, value in tile_poss_occur.items():
+                        if value not in tile_poss_occur_flipped:
+                            tile_poss_occur_flipped[value] = [key]
+                        else:
+                            tile_poss_occur_flipped[value].append(key)
+
+                    # - For each key (num occurences) and value (list of possibilities that occurred that many times)..
+                    for key, value in tile_poss_occur_flipped.items():
+                        # - If the key (num occurrences) is at least 2 and is also equal to the length of the value
+                        # - (list of possibilities), and the tile currently has more possibilities than the number of
+                        # - values (possibilities that occurred that many times)
+                        # - e.g. If there are 2 possibilities that occurred 2 times, or
+                        # - 3 possibilities that occurred 3 times, etc.
+                        value_count = len(value)
+                        if key >= 2 and key == value_count and len(tile_poss) > value_count:
+                            # - This list will hold all of the indices where every val in value is found
+                            found = []
+                            # - For each set of common values that we found earlier..
+                            for common in other_tiles_common:
+                                # - If every val in values is found in common..
+                                num_values_in_common = len(list(set(value) & set(common[2])))
+                                if num_values_in_common == value_count:
+                                    # - Add the indices to 'found'
+                                    found.append(common[:2])
+                            # - If the number of tiles where every val in value was found is the same as the number of
+                            # - occurrences of those values (i.e. those values occur in those places and nowhere else),
+                            # - this is a hidden group (pair/triple/etc)
+                            if key == len(found) + 1:
+                                # - Remove all other possible values from each of the found grouped tiles
+                                for modif_idx, modif_idy in [(idx, idy)] + found:
+                                    self.poss[modif_idx][modif_idy] = value
 
     def __solve_x_wing(self, which_rc: int, rc_num: int, val: int, pair: List[int]) -> None:
         """Try to eliminate possibilities based on the X Wing strategy.
@@ -533,7 +608,7 @@ class Board:
                                                 pass
 
     def __solve_swordfish(self, which_rc: int, rc_num: int, val: int, pair: List[int]) -> None:
-        """Try to eliminate possibilities based on the Swordfish strategy. Similar to the X Wing strategy, but with 
+        """Try to eliminate possibilities based on the Swordfish strategy. Similar to the X Wing strategy, but with
         3 rows or columns.
         If a value exists in exactly 2 places in a row or column ('pair', given) and there exists two additional rows
         or columns in which the value exists in exactly 2 places, if the original row or column and the first additional
@@ -634,8 +709,7 @@ class Board:
 
                     block_num = self.__get_block_num(idx, idy)
                     block_range = self.__get_block_range(block_num)
-                    block = grid[np.ix_(
-                        block_range[0], block_range[1])].flatten()
+                    block = grid[np.ix_(block_range[0], block_range[1])].flatten()
                     for val in range(1, 10):
                         if val not in row and val not in col and val not in block:
                             grid[idx][idy] = val
@@ -704,5 +778,6 @@ if __name__ == '__main__':
             print(e)
             print('Unsolved:')
         print(b)
+        # print(b.grid.tolist())
         v = b.verify_board(bs)
         print(f'Verified: {v if v is not None else True}\n')
