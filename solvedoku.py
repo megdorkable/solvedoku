@@ -3,6 +3,7 @@
 import numpy as np
 import itertools
 import pickle
+import random
 from typing import Tuple, List, Dict
 from test_boards import boards_sols
 
@@ -125,7 +126,8 @@ class Board:
         except AttributeError:
             return
 
-    def __get_block_num(self, idx: int, idy: int) -> int | None:
+    @staticmethod
+    def get_block_num(idx: int, idy: int) -> int | None:
         """Given a row and column index, will return the block number.
 
         0 1 2
@@ -162,7 +164,8 @@ class Board:
         else:
             return None
 
-    def __get_block_range(self, block_num: int) -> Tuple[range, range] | None:
+    @staticmethod
+    def get_block_range(block_num: int) -> Tuple[range, range] | None:
         """Given a block number, will return the ranges for the row and column indices.
 
         Args:
@@ -210,7 +213,7 @@ class Board:
                     idc = col_val - 1
                     row_has[idx][idc] = True
                     col_has[idy][idc] = True
-                    block_has[self.__get_block_num(idx, idy)][idc] = True
+                    block_has[Board.get_block_num(idx, idy)][idc] = True
                     self.poss[idx][idy] = []
                     self.unsolved -= 1
         return (row_has, col_has, block_has)
@@ -230,7 +233,7 @@ class Board:
                 if col_val is None:
                     for poss_val in curr_poss[idx][idy]:
                         if not self.row_has[idx][poss_val] and not self.col_has[idy][poss_val] and \
-                                not self.block_has[self.__get_block_num(idx, idy)][poss_val]:
+                                not self.block_has[Board.get_block_num(idx, idy)][poss_val]:
                             new_poss.append(poss_val)
                 curr_poss[idx][idy] = new_poss
                 if len(curr_poss[idx][idy]) == 1:
@@ -248,7 +251,7 @@ class Board:
         self.grid[idx][idy] = val + 1
         self.row_has[idx][val] = True
         self.col_has[idy][val] = True
-        self.block_has[self.__get_block_num(idx, idy)][val] = True
+        self.block_has[Board.get_block_num(idx, idy)][val] = True
         self.poss = self.__gen_poss(self.poss)
         self.unsolved -= 1
 
@@ -380,7 +383,7 @@ class Board:
             # - all_found will be equal to a list of all tuples of (row, column) indices at which the val is possible
             all_found: List[Tuple[int, int]] = []
             # - Get (as a tuple) the ranges of row and columns within this block
-            block_range: Tuple[range, range] = self.__get_block_range(block_num)
+            block_range: Tuple[range, range] = Board.get_block_range(block_num)
 
             # - Find tiles for which the value is still possible
             for idx in block_range[0]:
@@ -445,7 +448,7 @@ class Board:
             block_num (int): The number of the block
         """
         # - Get (as a tuple) the ranges of row and columns within this block
-        block_range: Tuple[range, range] = self.__get_block_range(block_num)
+        block_range: Tuple[range, range] = Board.get_block_range(block_num)
 
         # - For each tile in the block..
         for idx in block_range[0]:
@@ -581,7 +584,7 @@ class Board:
                 if idx != wing_idx or idy != wing_idy:
                     # - A wing has to have the same row, column, or block as the intersect
                     if idx == wing_idx or idy == wing_idy or \
-                       self.__get_block_num(idx, idy) == self.__get_block_num(wing_idx, wing_idy):
+                       Board.get_block_num(idx, idy) == Board.get_block_num(wing_idx, wing_idy):
                         # - A wing cannot have the exact same possibilites as the intersect
                         if self.poss[idx][idy] != self.poss[wing_idx][wing_idy]:
                             # - A wing must have one of the same possibilities as the intersect
@@ -601,8 +604,8 @@ class Board:
                 for second_wing_row, second_wing_col in wings:
                     # - The second wing cannot intersect the first wing
                     if wing_row != second_wing_row and wing_col != second_wing_col and \
-                        self.__get_block_num(wing_row, wing_col) != self.__get_block_num(second_wing_row,
-                                                                                         second_wing_col):
+                        Board.get_block_num(wing_row, wing_col) != Board.get_block_num(second_wing_row,
+                                                                                       second_wing_col):
                         second_wing_poss = self.poss[second_wing_row][second_wing_col]
                         # - The values that are only in one of intersect's or the first wing's possibilities,
                         # - but not in both, must be equal to the second wing's possibilities
@@ -623,8 +626,8 @@ class Board:
                             for wing_idx, wing_idy, other_idx, other_idy in \
                                 [(wing_row, wing_col, second_wing_row, second_wing_col),
                                  (second_wing_row, second_wing_col, wing_row, wing_col)]:
-                                block_num = self.__get_block_num(wing_idx, wing_idy)
-                                block_range = self.__get_block_range(block_num)
+                                block_num = Board.get_block_num(wing_idx, wing_idy)
+                                block_range = Board.get_block_range(block_num)
                                 for block_idx in block_range[0]:
                                     for block_idy in block_range[1]:
                                         if block_idx == other_idx or block_idy == other_idy:
@@ -758,8 +761,8 @@ class Board:
                 if col_val is None:
                     col = grid[:, idy]
 
-                    block_num = self.__get_block_num(idx, idy)
-                    block_range = self.__get_block_range(block_num)
+                    block_num = Board.get_block_num(idx, idy)
+                    block_range = Board.get_block_range(block_num)
                     block = grid[np.ix_(block_range[0], block_range[1])].flatten()
                     for val in range(1, 10):
                         if val not in row and val not in col and val not in block:
@@ -808,6 +811,98 @@ class Board:
         return None
 
 
+class BoardGenerator:
+    def __init__(self) -> None:
+        pass
+
+    def generate(self):
+        grid: List[List[int]] = np.full((9, 9), None).tolist()
+        poss: List[int] = [x for x in range(1, 10)]
+        row_poss: List[List[int]] = np.full((9, 9), [x for x in range(1, 10)]).tolist()
+        col_poss: List[List[int]] = np.full((9, 9), [x for x in range(1, 10)]).tolist()
+        block_poss: List[List[int]] = np.full((9, 9), [x for x in range(1, 10)]).tolist()
+
+        solution = np.array(self.__gen_board_filled(grid, poss, row_poss, col_poss, block_poss)).tolist()
+        print(solution)
+
+        num_to_remove = int(random.randrange(40, 9 * 9 - 17 + 1) / 2)
+        for _ in range(0, num_to_remove):
+            self.__gen_board_removal(grid)
+        return (grid, solution)
+
+    def __gen_board_filled(self, grid, poss, row_poss, col_poss, block_poss):
+        for block_num in [0, 4, 8, 1, 2, 3, 5, 6, 7]:
+            idx_range, idy_range = Board.get_block_range(block_num)
+            for idx in idx_range:
+                for idy in idy_range:
+                    if grid[idx][idy] is None:
+                        remaining = list(set(poss) & set(row_poss[idx]) & set(
+                            col_poss[idy]) & set(block_poss[block_num]))
+                        while grid[idx][idy] is None:
+                            val = remaining[random.randrange(0, len(remaining))]
+                            grid[idx][idy] = val
+                            row_poss[idx].remove(val)
+                            col_poss[idy].remove(val)
+                            block_poss[block_num].remove(val)
+                            try:
+                                self.__gen_board_filled(grid, poss, row_poss, col_poss, block_poss)
+                            except ValueError:
+                                grid[idx][idy] = None
+                                row_poss[idx].append(val)
+                                col_poss[idy].append(val)
+                                block_poss[block_num].append(val)
+                                remaining.remove(val)
+        return grid
+
+    def __gen_board_removal(self, grid):
+        index1 = random.randrange(0, 9)
+        index2 = random.randrange(0, 9)
+        value1 = grid[index1][index2]
+        value2 = grid[index2][index1]
+
+        if value1 is not None and value2 is not None:
+            grid[index1][index2] = None
+            grid[index2][index1] = None
+            b = Board(grid)
+            try:
+                b.solve()
+                if self.solution_count(grid) > 1:
+                    raise RuntimeError
+            except ValueError:
+                grid[index1][index2] = value1
+                grid[index2][index1] = value2
+                self.__gen_board_removal(grid)
+            except RuntimeError:
+                grid[index1][index2] = value1
+                grid[index2][index1] = value2
+        else:
+            self.__gen_board_removal(grid)
+
+    def solution_count(self, grid: List[List[int]]) -> None:
+        grid_np = np.array(grid)
+        return self.__solution_count_inner(grid_np)
+
+    def __solution_count_inner(self, grid: np.ndarray) -> int:
+        count = 0
+        for idx, row in enumerate(grid):
+            for idy, col_val in enumerate(row):
+                if col_val is None:
+                    col = grid[:, idy]
+
+                    block_num = Board.get_block_num(idx, idy)
+                    block_range = Board.get_block_range(block_num)
+                    block = grid[np.ix_(block_range[0], block_range[1])].flatten()
+                    for val in range(1, 10):
+                        if val not in row and val not in col and val not in block:
+                            grid[idx][idy] = val
+                            inner_count = self.__solution_count_inner(grid)
+                            if inner_count is not None:
+                                count += inner_count
+                            grid[idx][idy] = None
+                    return count
+        return 1
+
+
 if __name__ == '__main__':
     chosen = -1
     recurse_toggle = False
@@ -815,22 +910,27 @@ if __name__ == '__main__':
         options = [i for i, _ in enumerate(boards_sols)]
         default_val = options[-1]
         chosen = input(f"Choose a number out of {options} (hit enter for default value: {default_val}), " +
-                       "'r' to toggle using recursive solve, 'q' to exit): ")
+                       "'g' to generate a random board, 'r' to toggle using recursive solve, 'q' to exit): ")
         e = 'You have not entered a valid number from the given options.'
         if chosen == 'q':
             exit(0)
         elif chosen == 'r':
             recurse_toggle = not recurse_toggle
         else:
-            if chosen == '':
-                chosen = default_val
             try:
-                chosen = int(chosen)
-                if chosen not in options:
-                    raise TypeError('Chosen integer not in options. Please choose again.')
+                grid, solution = [], []
+                if chosen == '':
+                    chosen = default_val
+                elif chosen == 'g':
+                    grid, solution = BoardGenerator().generate()
+                else:
+                    chosen = int(chosen)
+                    if chosen not in options:
+                        raise ValueError('Chosen integer not in options. Please choose again.')
 
-                b = Board(boards_sols[chosen][0])
-                bs = boards_sols[chosen][1]
+                    grid, solution = boards_sols[chosen][0], boards_sols[chosen][1]
+
+                b = Board(grid)
 
                 print('Board:')
                 print(b)
@@ -847,8 +947,7 @@ if __name__ == '__main__':
                 print(b)
                 if recurse_toggle:
                     print(b.grid)
-                v = b.verify_board(bs)
+                v = b.verify_board(solution)
                 print(f'Verified: {v if v is not None else True}\n')
-
             except (ValueError, TypeError) as e:
                 print(f'\n{e}\n')
