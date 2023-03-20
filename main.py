@@ -15,6 +15,7 @@ class Tile(TextInput):
     def __init__(self, **kwargs):
         super(Tile, self).__init__(**kwargs)
         self.font_size = min(self.height, self.width) * 0.9
+        self.font_name = 'DejaVuSans'
         self.halign = "center"
         self.multiline = False
         self.write_tab = False
@@ -126,8 +127,8 @@ class ActionButtons(BoxLayout):
 class AllElements(GridLayout):
     def __init__(self, **kwargs):
         super(AllElements, self).__init__(**kwargs)
-        self.height: self.minimum_height
-        self.width = self.height
+        # self.height: self.minimum_height
+        # self.width = self.height
         self.cols = 1
         self.rows = 2
 
@@ -136,6 +137,8 @@ class AllElements(GridLayout):
 
         self.add_widget(board)
         self.add_widget(buttons)
+
+        Window.size = (600, 600)
 
 
 class SudokuApp(App):
