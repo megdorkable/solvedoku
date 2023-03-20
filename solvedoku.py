@@ -823,7 +823,6 @@ class BoardGenerator:
         block_poss: List[List[int]] = np.full((9, 9), [x for x in range(1, 10)]).tolist()
 
         solution = np.array(self.__gen_board_filled(grid, poss, row_poss, col_poss, block_poss)).tolist()
-        print(solution)
 
         num_to_remove = int(random.randrange(40, 9 * 9 - 17 + 1) / 2)
         for _ in range(0, num_to_remove):
