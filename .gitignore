@@ -6,3 +6,4 @@ env
 build
 *.egg*
 .idea/*
+.DS_Store

@@ -7,7 +7,7 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
-from solvedoku import BoardGenerator
+from solvedoku import Board, BoardGenerator
 
 
 class SudokuBoard(GridLayout):
@@ -36,6 +36,11 @@ class SudokuBoard(GridLayout):
                     grid[idx][idy] = None
         return grid
 
+    def set_grid(self, grid):
+        for idx, row in enumerate(grid):
+            for idy, col_val in enumerate(row):
+                self.set_value(idx, idy, col_val if col_val is not None else '')
+
 
 class ActionButtons(BoxLayout):
     def __init__(self, board: SudokuBoard, **kwargs):
@@ -59,18 +64,25 @@ class ActionButtons(BoxLayout):
     def callback_gen(self, event) -> None:
         grid, solution = BoardGenerator().generate()
         self.board.solution = solution
-        for idx, row in enumerate(grid):
-            for idy, col_val in enumerate(row):
-                self.board.set_value(idx, idy, col_val if col_val is not None else '')
+        self.board.set_grid(grid)
 
     def callback_solve(self, event) -> None:
-        print(self.board.get_grid())
-        print('solve')
+        try:
+            solution = self.board.solution
+
+            if solution is None:
+                b = Board(self.board.get_grid())
+                b.solve()
+                solution = b.grid
+
+            self.board.set_grid(solution)
+        except (ValueError, RuntimeError) as e:
+            print(e)
 
     def callback_clear(self, event) -> None:
-        for idx, row in enumerate(self.board.tiles):
-            for idy, _ in enumerate(row):
-                self.board.tiles[idx][idy].text = ''
+        grid = np.full((9, 9), None)
+        self.board.set_grid(grid)
+        self.board.solution = None
 
 
 class AllElements(GridLayout):
