@@ -7,21 +7,59 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
+from kivy.core.window import Window
 from solvedoku import Board, BoardGenerator
+
+
+class Tile(TextInput):
+    def __init__(self, **kwargs):
+        super(Tile, self).__init__(**kwargs)
+        self.font_size = min(self.height, self.width) * 0.9
+        self.halign = "center"
+        self.multiline = False
+        self.write_tab = False
+
+    def resize(self):
+        self.font_size = min(self.height, self.width) * 0.7564
+        pad = 6
+        if self.height > self.width:
+            pad += (self.height - self.width) / 2
+        self.padding = (6, pad, 6, 6)
+
+
+class SudokuBlock(GridLayout):
+    def __init__(self, tiles, **kwargs):
+        super(SudokuBlock, self).__init__(**kwargs)
+        self.cols = 3
+        self.rows = 3
+        self.tiles = tiles
+
+        for tile in self.tiles:
+            self.add_widget(tile)
 
 
 class SudokuBoard(GridLayout):
     def __init__(self, **kwargs):
         super(SudokuBoard, self).__init__(**kwargs)
-        self.cols = 9
-        self.rows = 9
+        self.cols = 3
+        self.rows = 3
         self.tiles = np.full((9, 9), None)
         self.solution = None
+        Window.bind(on_resize=self.on_window_resize)
 
         for idx in range(0, 9):
             for idy in range(0, 9):
-                self.tiles[idx][idy] = TextInput(font_size=100)
-                self.add_widget(self.tiles[idx][idy])
+                self.tiles[idx][idy] = Tile()
+
+        for block_num in range(0, 9):
+            idx_range, idy_range = Board.get_block_range(block_num)
+            block_tiles = [self.tiles[idx][idy] for idx in idx_range for idy in idy_range]
+            self.add_widget(SudokuBlock(block_tiles))
+
+    def on_window_resize(self, window, width, height):
+        for row in self.tiles:
+            for tile in row:
+                tile.resize()
 
     def set_value(self, idx: int, idy: int, value: int) -> None:
         self.tiles[idx][idy].text = str(value)
@@ -89,10 +127,11 @@ class AllElements(GridLayout):
     def __init__(self, **kwargs):
         super(AllElements, self).__init__(**kwargs)
         self.height: self.minimum_height
+        self.width = self.height
         self.cols = 1
         self.rows = 2
 
-        board = SudokuBoard()
+        board = SudokuBoard(spacing=10)
         buttons = ActionButtons(board=board, orientation='horizontal', spacing=10, size_hint=(1, 0.1))
 
         self.add_widget(board)
