@@ -292,6 +292,9 @@ class Board:
                 self.__solve_xy_wing()
                 tried_xy_wing = True
             elif self.unsolved == stuck and not tried_last_resort:
+                if Board.solution_count(self.grid) > 1:
+                    raise ValueError("The given board has more than one possible solution, and is therefore not a " +
+                                     "valid Sudoku board.")
                 self.__solve_last_resort()
                 tried_last_resort = True
             elif self.unsolved == stuck:
@@ -774,6 +777,32 @@ class Board:
                     return None
         return grid
 
+    @staticmethod
+    def solution_count(grid: List[List[int]]) -> None:
+        grid_np = np.array(grid)
+        return Board.__solution_count_inner(grid_np)
+
+    @staticmethod
+    def __solution_count_inner(grid: np.ndarray) -> int:
+        count = 0
+        for idx, row in enumerate(grid):
+            for idy, col_val in enumerate(row):
+                if col_val is None:
+                    col = grid[:, idy]
+
+                    block_num = Board.get_block_num(idx, idy)
+                    block_range = Board.get_block_range(block_num)
+                    block = grid[np.ix_(block_range[0], block_range[1])].flatten()
+                    for val in range(1, 10):
+                        if val not in row and val not in col and val not in block:
+                            grid[idx][idy] = val
+                            inner_count = Board.__solution_count_inner(grid)
+                            if inner_count is not None:
+                                count += inner_count
+                            grid[idx][idy] = None
+                    return count
+        return 1
+
     def __count_none(self) -> int:
         """Check how many None values exist in the Board's current grid.
 
@@ -804,11 +833,12 @@ class Board:
             Tuple[int, int] | None: Either a tuple of two integers representing the (row index, column index) of the
                                     first error found, or None if no errors are found.
         """
+        incorrect = []
         for x, row in enumerate(self.grid):
             for y, val in enumerate(row):
                 if val is not None and val != solution[x][y]:
-                    return (x, y)
-        return None
+                    incorrect.append((x, y))
+        return None if len(incorrect) == 0 else incorrect
 
 
 class BoardGenerator:
@@ -865,7 +895,7 @@ class BoardGenerator:
             b = Board(grid)
             try:
                 b.solve()
-                if self.solution_count(grid) > 1:
+                if Board.solution_count(grid) > 1:
                     raise RuntimeError
             except ValueError:
                 grid[index1][index2] = value1
@@ -876,30 +906,6 @@ class BoardGenerator:
                 grid[index2][index1] = value2
         else:
             self.__gen_board_removal(grid)
-
-    def solution_count(self, grid: List[List[int]]) -> None:
-        grid_np = np.array(grid)
-        return self.__solution_count_inner(grid_np)
-
-    def __solution_count_inner(self, grid: np.ndarray) -> int:
-        count = 0
-        for idx, row in enumerate(grid):
-            for idy, col_val in enumerate(row):
-                if col_val is None:
-                    col = grid[:, idy]
-
-                    block_num = Board.get_block_num(idx, idy)
-                    block_range = Board.get_block_range(block_num)
-                    block = grid[np.ix_(block_range[0], block_range[1])].flatten()
-                    for val in range(1, 10):
-                        if val not in row and val not in col and val not in block:
-                            grid[idx][idy] = val
-                            inner_count = self.__solution_count_inner(grid)
-                            if inner_count is not None:
-                                count += inner_count
-                            grid[idx][idy] = None
-                    return count
-        return 1
 
 
 if __name__ == '__main__':
@@ -919,7 +925,7 @@ if __name__ == '__main__':
             try:
                 grid, solution = [], []
                 if chosen == '':
-                    chosen = default_val
+                    grid, solution = boards_sols[default_val][0], boards_sols[default_val][1]
                 elif chosen == 'g':
                     grid, solution = BoardGenerator().generate()
                 else:
