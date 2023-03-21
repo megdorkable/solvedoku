@@ -799,6 +799,8 @@ class Board:
                             inner_count = Board.__solution_count_inner(grid)
                             if inner_count is not None:
                                 count += inner_count
+                            if count > 1:
+                                return count
                             grid[idx][idy] = None
                     return count
         return 1
