@@ -218,7 +218,7 @@ class Board:
                     self.unsolved -= 1
         return (row_has, col_has, block_has)
 
-    def __gen_poss(self, curr_poss: List[List[List[int]]]) -> List[List[List[int]]]:
+    def gen_poss(self, curr_poss: List[List[List[int]]]) -> List[List[List[int]]]:
         """Find the list of possibilities for each tile in the Board. This is similar to notes when solving by hand.
 
         Args:
@@ -236,8 +236,6 @@ class Board:
                                 not self.block_has[Board.get_block_num(idx, idy)][poss_val]:
                             new_poss.append(poss_val)
                 curr_poss[idx][idy] = new_poss
-                if len(curr_poss[idx][idy]) == 1:
-                    self.__set_tile(idx, idy, val=curr_poss[idx][idy][0])
         return curr_poss
 
     def __set_tile(self, idx: int, idy: int, val: int):
@@ -252,7 +250,7 @@ class Board:
         self.row_has[idx][val] = True
         self.col_has[idy][val] = True
         self.block_has[Board.get_block_num(idx, idy)][val] = True
-        self.poss = self.__gen_poss(self.poss)
+        self.poss = self.gen_poss(self.poss)
         self.unsolved -= 1
 
     def solve(self) -> None:
@@ -266,7 +264,7 @@ class Board:
         tried_xy_wing = False
         tried_last_resort = False
         while self.unsolved > 0:
-            self.poss = self.__gen_poss(self.poss)
+            self.poss = self.gen_poss(self.poss)
             # - Solve by rows
             for idx, r_has in enumerate(self.row_has):
                 for val in range(0, 9):
@@ -286,6 +284,9 @@ class Board:
                     found = self.__solve_block(block_num, val)
                     if found:
                         self.__set_tile(idx=found[0], idy=found[1], val=val)
+            # - Set sells that only have one remaining possibility
+            self.__solve_last_possible()
+            # - Check if we have reached a stuck state and run higher cost algorithms
             if self.unsolved == stuck and not self.__has_rem_poss():
                 raise ValueError("The given board is invalid (there is no valid solution).")
             if self.unsolved == stuck and not tried_xy_wing:
@@ -304,6 +305,12 @@ class Board:
                 tried_xy_wing = False
                 tried_last_resort = False
             stuck = self.unsolved
+
+    def __solve_last_possible(self) -> None:
+        for idx, row in enumerate(self.poss):
+            for idy, col_poss in enumerate(row):
+                if len(col_poss) == 1:
+                    self.__set_tile(idx, idy, val=col_poss[0])
 
     def __solve_row_col(self, which_rc: int, rc_num: int, rc_has: List[List[bool]], val: int) -> int | None:
         """Try to find a placement for a given value in either a row or a column.
