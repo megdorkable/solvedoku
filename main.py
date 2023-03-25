@@ -30,11 +30,19 @@ class Tile(TextInput):
         if substring in options:
             if not self.readonly:
                 self.text = ''
+                self.background_color = [1, 1, 1, 1]
+                self.text_color = [0, 0, 0, 1]
             if self.toggle_notes:
                 self.notes_tile.toggle(int(substring) - 1)
             else:
                 self.notes_tile.clear()
                 return super().insert_text(substring, from_undo=from_undo)
+
+    def do_backspace(self, from_undo=False, mode='bkspc'):
+        if not self.readonly:
+            self.background_color = [1, 1, 1, 1]
+            self.text_color = [0, 0, 0, 1]
+        return super().do_backspace(from_undo=from_undo, mode=mode)
 
     def resize(self):
         self.font_size = min(self.height, self.width) * 0.7564
